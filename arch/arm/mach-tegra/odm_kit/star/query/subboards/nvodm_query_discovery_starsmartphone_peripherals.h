@@ -41,6 +41,17 @@
 #endif
 //20100413, , powerkey [END]
 
+//20101129, hyeongwon.oh@lge.com, SU660 homekey [START]
+#if defined(CONFIG_STAR_HOMEKEY)
+{
+    NV_ODM_GUID('h','o','m','e','-','k','e','y'),
+    s_lge_HomeKeyAddresses,
+    NV_ARRAY_SIZE(s_lge_HomeKeyAddresses),
+    NvOdmPeripheralClass_Other
+},
+#endif
+//20101129, hyeongwon.oh@lge.com, SU660 homekey [END]
+
 // LCD module
 {
 #if defined(CONFIG_MACH_STAR)
@@ -417,6 +428,19 @@
     NV_ARRAY_SIZE(s_lge_AudioCodecAddresses),
     NvOdmPeripheralClass_Other
 },
+
+// 20100927 hyeongwon.oh@lge.com Synaptics OneTouch support [START]
+#ifdef CONFIG_ONETOUCH_TEGRA_ODM
+//     Touch Panel
+{
+// Synaptics touch is used, GUID needs to be changed accordingly
+	NV_ODM_GUID('o','n','e','t','o','u','c','h'),
+	s_lge_SynapticsOneTouchAddresses,
+	NV_ARRAY_SIZE(s_lge_SynapticsOneTouchAddresses),
+	NvOdmPeripheralClass_HCI
+},
+#endif
+// 20100927 hyeongwon.oh@lge.com Synaptics OneTouch support [END]
 
 // 20100527  Synaptics/Cypress Touch support [START]
 //	Touch Panel

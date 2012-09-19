@@ -4,9 +4,30 @@ choice
        bool "STAR TMUS (p999)"
        depends on MACH_STAR
        config MACH_STAR_REV_F
-       bool "STAR Rev.F (p990)"
+       bool "STAR Rev.F (p990, su660)"
        depends on MACH_STAR
 endchoice
+
+config MACH_STAR_SKT
+	bool "Star SKT (su660)"
+	depends on MACH_STAR
+	select STAR_HOMEKEY
+	select ONETOUCH_TEGRA_ODM
+	select CONFIG_LGE_ATS_INPUT_DEVICE
+
+if MACH_STAR_SKT
+	config MACH_STAR_SKT_REV_A
+	bool
+	config MACH_STAR_SKT_REV_B
+	bool
+	config MACH_STAR_SKT_REV_C
+	bool
+	config MACH_STAR_SKT_REV_D
+	bool
+	config MACH_STAR_SKT_REV_E
+	bool
+	default y
+endif
 
 config STAR_PMIC
 	bool "star pmic test"

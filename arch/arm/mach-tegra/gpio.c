@@ -360,6 +360,10 @@ const struct tegra_init_gpio_info tegra_init_gpio_info_array[] = {
 #ifdef CONFIG_MACH_STAR_REV_F
     { 'r'-'a',      1, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   KBCA},  // IFX2_AP20 (LGP990)
     { 'r'-'a',      2, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   KBCA},  // PROXI_OUT
+#if defined(CONFIG_STAR_HOMEKEY)
+    { 'j'-'a',      6, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   IRRX},  // LOWER_TOUCH_INT/ (SU660)
+    { 'v'-'a',      6, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   GPV},  // HomeKey (SU660)
+#endif
 #endif
 
     /* group tristate or input */
@@ -473,6 +477,10 @@ const struct tegra_init_gpio_info tegra_sleep_gpio_info_array[] = {
     { 'x'-'a',      6, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   SPIE},  // TOUCH_INT
 #ifdef CONFIG_MACH_STAR_REV_F
     { 'r'-'a',      1, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   KBCA},  // IFX2_AP20 (LGP990)
+#ifdef CONFIG_STAR_HOMEKEY
+    { 'j'-'a',      6, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   IRRX},  // LOWER_TOUCH_INT/ (SU660)
+    { 'v'-'a',      6, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   GPV},  // HomeKey (SU660)
+#endif
 #endif
     { 'w'-'a',      2, GPIO_ENABLE, GPIO_INPUT,     GPIO_SLEEP_LOW,   KBCA},  // PROXI_OUT
     /* group tristate or input */
@@ -752,13 +760,9 @@ static const unsigned int disable_interrupt_list[] =
     TEGRA_GPIO_PI0,   // MOTION_INT
     TEGRA_GPIO_PX6,  //  TOUCH_INT
     TEGRA_GPIO_PR2,  // PROXI_OUT
-#if defined(STAR_COUNTRY_KR) && defined(STAR_OPERATOR_SKT)	
+#if defined(CONFIG_STAR_HOMEKEY)
     TEGRA_GPIO_PJ6,  // LOWER_TOUCH_INT/ (SU660)
-#endif
-#if defined(STAR_COUNTRY_KR) && defined(STAR_OPERATOR_SKT)
-#if defined(CONFIG_MACH_STAR_SKT_REV_E) || defined(CONFIG_MACH_STAR_SKT_REV_F) 
     TEGRA_GPIO_PV6,  // HomeKey (SU660)
-#endif
 #endif
     TEGRA_GPIO_PW3,  // BATT_LOW_INT
     TEGRA_GPIO_PV3,	// MDM_RESET_FLAG +

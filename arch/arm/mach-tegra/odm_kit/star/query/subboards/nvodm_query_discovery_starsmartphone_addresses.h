@@ -86,6 +86,15 @@ static const NvOdmIoAddress s_lge_PowerKeyAddresses[] =
 #endif
 //20100413, , powerkey [END]
 
+//20101129, hyeongwon.oh@lge.com, SU660 homekey [START]
+#if defined(CONFIG_STAR_HOMEKEY)
+static const NvOdmIoAddress s_lge_HomeKeyAddresses[] =
+{
+    { NvOdmIoModule_Gpio, 'v' - 'a' , 6, 0 },
+};
+#endif
+//20101129, hyeongwon.oh@lge.com, SU660 homekey [END]
+
 static const NvOdmIoAddress s_lge_HdmiAddresses[] =
 {
     { NvOdmIoModule_Hdmi, 0, 0, 0 },
@@ -441,6 +450,18 @@ static const NvOdmIoAddress s_lge_TouchPanelAddresses[] =
 #endif
 
 #if defined(CONFIG_MACH_STAR)
+// 20100927  hyeongwon.oh@lge.com Synaptics OneTouch support [START]
+#if defined(CONFIG_ONETOUCH_TEGRA_ODM)
+static const NvOdmIoAddress s_lge_SynapticsOneTouchAddresses[] =
+{
+       { NvOdmIoModule_I2c, 0x00, 0x2C, 0 },                                           /* GEN1_I2C instance = 0x00, OneTouch IC I2C Address = 0x2C */
+       { NvOdmIoModule_Gpio, 'j' - 'a', 6, 0 },                                        /* GPIO Port J and Pin 6, Int */
+       { NvOdmIoModule_Vdd, 0x00, Max8907PmuSupply_LDO16, 0 }, // VCC_TOUCH_1V8
+       { NvOdmIoModule_I2c_Pmu, 0x00, Max8907PmuSupply_LDO19, 0 },     // TOUCH_I2C_1V8
+};
+#endif
+// 20100927  hyeongwon.oh@lge.com Synaptics OneTouch support [END]
+
 // 20100527  Synaptics/Cypress Touch support [START]
 static const NvOdmIoAddress s_lge_SynapticsTouchAddresses[] = 
 {
@@ -471,7 +492,11 @@ static const NvOdmIoAddress s_lge_MuicAddresses[] =
     { NvOdmIoModule_Gpio, 'u' - 'a', 3, 0 }, /* USIF1_SW  */
 #endif
 #if defined(CONFIG_MACH_STAR)
+#if defined(CONFIG_MACH_STAR_SKT_REV_E)
+    { NvOdmIoModule_Gpio, 'r' - 'a', 5, 0 }, /* IFX_USB_VBUS_EN  */
+#else  //P999 & P990
     { NvOdmIoModule_Gpio, 'r' - 'a', 7, 0 }, /* MDM_USB_VBUS_EN  */
+#endif
 #else
 #error MUIC PIN not assigned
 #endif
@@ -555,7 +580,12 @@ static const NvOdmIoAddress s_lge_WlanAddresses[] =
 static const NvOdmIoAddress s_lge_HeadsetAddresses[] = 
 {
     { NvOdmIoModule_Gpio, 'g' - 'a', 3, 0 }, //Headset Detection
+#if defined(CONFIG_MACH_STAR_SKT_REV_E)
+    { NvOdmIoModule_Gpio, 'n' - 'a', 5, 0 }, //CONFIG_MACH_STAR_SKT_REV_D //20101101 seki.par@lge.com Gpio MicBias[START_LGE_LAB1]
+    { NvOdmIoModule_Gpio, 'h' - 'a', 1, 0 }, //Headset MicBias
+#else
     { NvOdmIoModule_Gpio, 'd' - 'a', 3, 0 }, //hook Detection //jongik2.kim 20100803 HOOK_DETECTION    
+#endif
     { NvOdmIoModule_Vdd, 0x00, Max8907PmuSupply_LDO12, 0 },	// hook detection power rail
 };
 #endif /* CONFIG_MACH_STAR */

@@ -1578,6 +1578,15 @@ static struct platform_device tegra_vibrator_device = {
 	.id = -1,
 };
 #endif
+//20101101, gunwoo1.kim@lge.com, ATS [START]
+#if defined(CONFIG_LGE_ATS_INPUT_DEVICE)
+static struct platform_device ats_event_log_device =
+{
+	.name = "ats_event_log",
+	.id   = -1,
+};
+#endif
+
 //20100401  MUIC driver [START]
 #if defined(CONFIG_MACH_STAR)
 static struct platform_device star_muic_device =
@@ -1607,6 +1616,14 @@ static struct platform_device star_powerkey =
 };
 #endif
 
+//20101129, hyeongwon.oh@lge.com, SU660 star homekey [START]
+#ifdef CONFIG_STAR_HOMEKEY
+static struct platform_device star_homekey =
+{
+    .name = "star_homekey",
+    .id   = -1,
+};
+#endif
 
 //20100611, , touch LED [START]
 #ifdef CONFIG_STAR_TOUCH_LED
@@ -1705,6 +1722,11 @@ static struct platform_device *nvodm_devices[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_TEGRA_ODM
 	&tegra_touch_device,
 #endif
+// 20100927  hyeongwon.oh@lge.com Synaptics OneTouch support [START]
+#ifdef CONFIG_ONETOUCH_TEGRA_ODM
+	&tegra_onetouch_device,
+#endif
+// 20100927  hyeongwon.oh@lge.com Synaptics OneTouch support [END]
 #ifdef CONFIG_INPUT_TEGRA_ODM_SCROLL
 	//&tegra_scrollwheel_device,
 #endif
@@ -1756,6 +1778,11 @@ static struct platform_device *nvodm_devices[] __initdata = {
 #ifdef CONFIG_STAR_HDMI_REG
     &star_hdmi_reg,
 #endif
+//20101129, hyeongwon.oh@lge.com, SU660 star homekey [START]
+#ifdef CONFIG_STAR_HOMEKEY
+    &star_homekey,
+#endif
+//20101129, hyeongwon.oh@lge.com, SU660 star homekey [END]
 
 //20100419  for headset detection [LGE_START]
 #if defined(CONFIG_MACH_STAR)
@@ -1780,6 +1807,11 @@ static struct platform_device *nvodm_devices[] __initdata = {
     &star_reset_keys_device,
 #endif
 //20100830, , soft reset [END]
+//20101101, gunwoo1.kim@lge.com, ATS [START]
+#if defined(CONFIG_LGE_ATS_INPUT_DEVICE)
+    &ats_event_log_device,
+#endif
+//20101101, gunwoo1.kim@lge.com, ATS [START]
 
 // 20101115 BT:  - For the BD Address Read /write [Start]
 	&star_bd_address_device,
@@ -2820,7 +2852,11 @@ static void __init tegra_setup_suspend(void)
         enable_irq_wake(gpio_to_irq(TEGRA_GPIO_PW2));  //proxi
 #endif
         enable_irq_wake(gpio_to_irq(TEGRA_GPIO_PG3));   //earjack sensor
+#if defined(CONFIG_MACH_STAR_SKT_REV_E)
+        enable_irq_wake(gpio_to_irq(TEGRA_GPIO_PN5));   //hook detect
+#else //P999 & P990
         enable_irq_wake(gpio_to_irq(TEGRA_GPIO_PD3));   //hook detect
+#endif
         enable_irq_wake(gpio_to_irq(TEGRA_GPIO_PG0));   //vol-up
         enable_irq_wake(gpio_to_irq(TEGRA_GPIO_PG1));   //vol-down
 #endif
