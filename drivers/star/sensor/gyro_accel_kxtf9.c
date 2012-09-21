@@ -75,11 +75,6 @@ static atomic_t		flip_flag;
 #define GYRO_ACCEL_I2C_MAX_RETRY 5
 #define GYRO_ACCEL_I2C_TIMEOUT 10
 
-char brdrev[5]; 
-#define BD_REVB	"B" 
-#define BD_REVC "C"
-
-
 struct accelerometer_data {
     NvU32 x;
     NvU32 y;
@@ -126,14 +121,14 @@ void star_accel_disable_irq(void)
 	NvOdmGpioInterruptMask(g_accel->h_accel_intr, NV_TRUE);
 }
 
-static ssize_t motion_tap_onoff_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t motion_tap_onoff_show(struct device *dev, struct device_attribute *attr, char *buf, size_t count)
 {
 	u32    val;
 	val = atomic_read(&tap_flag);
 	return sprintf(buf, "%d\n",val);
 }
 
-static ssize_t motion_tap_onoff_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t motion_tap_onoff_store(struct device *dev, struct device_attribute *attr, char *buf, size_t count)
 {
 	u32    val;
 	val = simple_strtoul(buf, NULL, 10);
@@ -148,14 +143,14 @@ static ssize_t motion_tap_onoff_store(struct device *dev, struct device_attribut
 	return count;
 }
 
-static ssize_t motion_flip_onoff_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t motion_flip_onoff_show(struct device *dev, struct device_attribute *attr, char *buf, size_t count)
 {
 	u32    val;
 	val = atomic_read(&flip_flag);
 	return sprintf(buf, "%d\n",val);
 }
 
-static ssize_t motion_flip_onoff_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t motion_flip_onoff_store(struct device *dev, struct device_attribute *attr, char *buf, size_t count)
 {
 	u32    val;
 	val = simple_strtoul(buf, NULL, 10);
@@ -274,6 +269,7 @@ static bool star_accel_i2c_read_data( star_accel_device *accel, unsigned char re
     //NvOdmOsFree(transfer_data);
     return true;
 }
+
 
 static void star_accel_set_sample_rate( star_accel_device *accel, unsigned int samplerate )
 {
@@ -416,53 +412,19 @@ static int kxtf9_get_acceleration_data_test(int *xyz_mg)
 	xyz_mg[0] = hw_mg[1];
 	xyz_mg[1] = -hw_mg[0];
 	xyz_mg[2] = hw_mg[2];
-#elif defined(STAR_COUNTRY_KR) && defined(STAR_OPERATOR_SKT)
+#elif defined(CONFIG_MACH_STAR_SKT_REV_E)
 	xyz_mg[0] = -hw_mg[1];
 	xyz_mg[1] = -hw_mg[0];
 	xyz_mg[2] = -hw_mg[2];
 #elif defined(STAR_COUNTRY_US) && defined(STAR_OPERATOR_TMO)
-
-	if(!strncmp(brdrev,BD_REVB,1)){
-		xyz_mg[0] = hw_mg[0];
-		xyz_mg[1] = -hw_mg[1];
-		xyz_mg[2] = -hw_mg[2];
-	} else { 
-		xyz_mg[0] = hw_mg[1];
-		xyz_mg[1] = -hw_mg[0];
-		xyz_mg[2] = hw_mg[2];  
-	}
-#elif defined(STAR_COUNTRY_CA) && defined(STAR_OPERATOR_AWC)
-	if(!strncmp(brdrev,BD_REVB,1)){
-		xyz_mg[0] = hw_mg[0];
-		xyz_mg[1] = -hw_mg[1];
-		xyz_mg[2] = -hw_mg[2];
-	} else { 
-		xyz_mg[0] = hw_mg[1];
-		xyz_mg[1] = -hw_mg[0];
-		xyz_mg[2] = hw_mg[2];  
-	}
-#elif defined(STAR_COUNTRY_CA) && defined(STAR_OPERATOR_AVC)
-	if(!strncmp(brdrev,BD_REVB,1)){
 	xyz_mg[0] = hw_mg[0];
 	xyz_mg[1] = -hw_mg[1];
 	xyz_mg[2] = -hw_mg[2];
-	} else { 
-		xyz_mg[0] = hw_mg[1];
-		xyz_mg[1] = -hw_mg[0];
-		xyz_mg[2] = hw_mg[2];  
-	}
 #else
-	if(!strncmp(brdrev,BD_REVB,1)){
-		xyz_mg[0] = hw_mg[0];
-		xyz_mg[1] = -hw_mg[1];
-		xyz_mg[2] = -hw_mg[2];
-	} else { 
 	xyz_mg[0] = hw_mg[1];
 	xyz_mg[1] = -hw_mg[0];
 	xyz_mg[2] = hw_mg[2];
-	}
 #endif
-
 
 	//printk("YJ- CNT=[  %4d,  %4d,  %4d] , ACC=[  %4d,  %4d,  %4d] \n", hw_cnt[0], hw_cnt[1], hw_cnt[2], hw_mg[0], hw_mg[1] , hw_mg[2] );
 	return 0;
@@ -498,7 +460,7 @@ static void star_accel_whoami( void )
 	#endif
 }
 
-// 20100702  Power control bug fix [START]
+// 20100702 taewan.kim@lge.com Power control bug fix [START]
 static void star_accel_set_power_rail(NvU32 vdd_id, NvBool is_enable )
 {
 	NvOdmServicesPmuVddRailCapabilities vddrailcap;
@@ -532,7 +494,7 @@ static void star_accel_set_power_rail(NvU32 vdd_id, NvBool is_enable )
 	#endif
 	NvOdmServicesPmuClose(h_pmu);
 }
-// 20100702  Power control bug fix [END]
+// 20100702 taewan.kim@lge.com Power control bug fix [END]
 
 
 int lge_sensor_verify_kxtf9(void) 
@@ -689,7 +651,7 @@ int tegra_accel_hw_init(void)
 	unsigned char tdt_latency_timer = 0x3c;
 	unsigned char tdt_window_timer = 0xb4;
 	unsigned char x_gain, y_gain, z_gain;
-	unsigned char tap_threshold = 0x1e;
+	unsigned char tap_threshold = 0x30;
 
 	/*----------------who am i -------------------*/
 	star_accel_i2c_read_data(g_accel, KIONIX_ACCEL_I2C_WHO_AM_I, &val_shadow, 1);
@@ -872,7 +834,7 @@ void star_accel_process_directional_tap(unsigned char tap_mode, unsigned char ta
 			else					printk("[%s:%d] ---I--- X-	Directional-Tap  : (1) Down \n",__FUNCTION__,__LINE__);  
 			break;
 	}
-#elif defined(STAR_COUNTRY_KR) && defined(STAR_OPERATOR_SKT)
+#elif defined(CONFIG_MACH_STAR_SKT_REV_E)
 	switch(tap_direction)
 	{
 		case INT_CTRL_REG3_TFUM : // Z+
@@ -1026,7 +988,7 @@ void star_accel_process_screen_rotation(unsigned char tilt_pos_pre, unsigned cha
 		break;
 	}
 
-	//if((tilt_pos_cur == 0x01) || (tilt_pos_cur == 0x02))
+	if((tilt_pos_cur == 0x01) || (tilt_pos_cur == 0x02))
 	{
 		if(call_once == 1)
 		{
@@ -1040,7 +1002,7 @@ void star_accel_process_screen_rotation(unsigned char tilt_pos_pre, unsigned cha
 		       {
 				#if defined(STAR_COUNTRY_COM) && defined(STAR_OPERATOR_OPEN)
 					flip_data = ACCEL_FLIP_DOWNSIDE_UP;
-				#elif defined(STAR_COUNTRY_KR) && defined(STAR_OPERATOR_SKT)
+				#elif defined(CONFIG_MACH_STAR_SKT_REV_E)
 					flip_data= ACCEL_FLIP_UPSIDE_DOWN;
 				#elif defined(STAR_COUNTRY_US) && defined(STAR_OPERATOR_TMO)
 					flip_data = ACCEL_FLIP_DOWNSIDE_UP;
@@ -1052,7 +1014,7 @@ void star_accel_process_screen_rotation(unsigned char tilt_pos_pre, unsigned cha
 		       {
 				#if defined(STAR_COUNTRY_COM) && defined(STAR_OPERATOR_OPEN)
 					flip_data= ACCEL_FLIP_UPSIDE_DOWN;
-				#elif defined(STAR_COUNTRY_KR) && defined(STAR_OPERATOR_SKT)
+				#elif defined(CONFIG_MACH_STAR_SKT_REV_E)
 					flip_data = ACCEL_FLIP_DOWNSIDE_UP;
 				#elif defined(STAR_COUNTRY_US) && defined(STAR_OPERATOR_TMO)
 					flip_data= ACCEL_FLIP_UPSIDE_DOWN;
@@ -1075,7 +1037,7 @@ static void star_accel_irq_handler(void *arg)
 {
 	
 	//printk("%s() -- start\n\n", __func__);
-	schedule_work(&g_accel->work); //
+	schedule_work(&g_accel->work); //magoo@lge.com
 
 }
 
@@ -1176,11 +1138,11 @@ static int __devinit star_accel_probe( struct platform_device *pdev )
 		goto failtomemorydev;
     }
 
-    // 20100702  Power control bug fix [START]
+    // 20100702 taewan.kim@lge.com Power control bug fix [START]
 	/*g_accel->h_accel_pmu = NvOdmServicesPmuOpen();
 	if( !g_accel->h_accel_pmu )
 	{err=-ENOSYS; goto failtomemorydev;}*/
-    // 20100702  Power control bug fix [START]
+    // 20100702 taewan.kim@lge.com Power control bug fix [START]
 
 	pcon = (NvOdmPeripheralConnectivity*)NvOdmPeripheralGetGuid(NV_ODM_GUID('a','c','c','e','l','e','r','o'));
 	//pcon = (NvOdmPeripheralConnectivity*)NvOdmPeripheralGetGuid(NV_ODM_GUID('p','r','o','x','i','m','i','t'));
@@ -1204,7 +1166,7 @@ static int __devinit star_accel_probe( struct platform_device *pdev )
 				#if STAR_ACCEL_DEBUG
 					printk("[skhwang] KXTF9 POWER %d\n", g_accel->vdd_id );
 				#endif
-                // 20100702  Power control bug fix
+                // 20100702 taewan.kim@lge.com Power control bug fix
 				star_accel_set_power_rail(g_accel->vdd_id, NV_TRUE);
 				NvOdmOsWaitUS(30);
 				break;
@@ -1321,22 +1283,18 @@ static int star_accel_remove( struct platform_device *pdev )
 	return 0;
 }
 
-extern int star_proxi_get_status(void);
-
 int star_accel_suspend(struct platform_device *dev, pm_message_t state)
 {
-    if (!star_proxi_get_status())
-        star_accel_disable_irq();
+	//star_accel_set_power_rail(g_accel->vdd_id, NV_FALSE);
 
-    return 0;
+	return 0;
 }
 
 int star_accel_resume(struct platform_device *dev)
 {
-    if (!star_proxi_get_status())
-        star_accel_enable_irq();
+	//star_accel_set_power_rail(g_accel->vdd_id, NV_TRUE);
 
-    return 0;
+	return 0;
 }
 
 static struct platform_driver star_accel_driver = {
