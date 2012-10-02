@@ -25,7 +25,6 @@
 #include <linux/platform_device.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
-#include <linux/slab.h>
 #include <linux/earlysuspend.h>
 #include <linux/freezer.h>
 //#include <linux/tegra_devices.h>
@@ -40,12 +39,15 @@ struct tegra_onetouch_driver_data
 	struct input_dev	*input_dev;
 	struct task_struct	*task;
 	NvOdmOsSemaphoreHandle	semaphore;
+	NvOdmOsMutexHandle hMutex;
 	NvOdmOneTouchDeviceHandle	hOneTouchDevice;
 	NvBool			bPollingMode;
 	NvU32			pollingIntervalMS;
 	int			shutdown;
-	int			isReset;
 	struct early_suspend	early_suspend;
+	/* wait_queue needed for kernel thread freeze support */
+	wait_queue_head_t	ts_wait;
+	NvBool bIsSuspended;
 };
 
 #ifdef CONFIG_STAR_TOUCH_LED
@@ -60,18 +62,23 @@ static void tegra_onetouch_early_suspend(struct early_suspend *es)
 
 	printk("[ONETOUCH] tegra_onetouch_early_suspend\n");
 	
-	if (onetouch && onetouch->hOneTouchDevice) {
-		NvOdmOneTouchInterruptMask(onetouch->hOneTouchDevice, NV_TRUE);
-		NvOdmOsSleepMS(50);
-		if(onetouch->isReset){
-			NvOdmOsSleepMS(50);
-			onetouch->isReset = 0;
-		}
-			
-		if (!NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_TRUE))
-			pr_err("[ONETOUCH] tegra_onetouch_suspend: fail onetouch sleepmode\n");
-	}
-	else {
+    if (onetouch && onetouch->hOneTouchDevice) {
+        if (!onetouch->bIsSuspended) {
+            NvOdmOsMutexLock(onetouch->hMutex);
+            NvOdmOneTouchInterruptMask(onetouch->hOneTouchDevice, NV_TRUE);
+
+            if (!NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_TRUE))
+                pr_err("[ONETOUCH] tegra_onetouch_suspend: fail onetouch sleepmode\n");
+            onetouch->bIsSuspended = NV_TRUE;
+            if (!onetouch->bPollingMode) {
+                /* allow touch thread to call wake_event_freezer */
+                NvOdmOsSemaphoreSignal(onetouch->semaphore);
+            }
+            NvOdmOsMutexUnlock(onetouch->hMutex);
+        }
+        else printk("[ONETOUCH]!: bIsSuspended = TURE!@tegra_onetouch_early_suspend\n");
+    }
+    else {
 		pr_err("[ONETOUCH] tegra_touch_early_suspend: NULL handles passed\n");
 	}
 		
@@ -83,43 +90,63 @@ static void tegra_onetouch_late_resume(struct early_suspend *es)
 	struct tegra_onetouch_driver_data *onetouch;
 	onetouch = container_of(es, struct tegra_onetouch_driver_data, early_suspend);
 
-	printk("[ONETOUCH] tegra_onetouch_late_resume\n");
+    printk("[ONETOUCH] tegra_onetouch_late_resume\n");
 
-	if (onetouch && onetouch->hOneTouchDevice) {
-		if (!NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_FALSE))
-		{
-			NvOdmOneTouchDeviceClose(onetouch->hOneTouchDevice);
-			NvOdmOneTouchDeviceOpen(&onetouch->hOneTouchDevice, &onetouch->semaphore);
-		}
-		else
-			NvOdmOneTouchInterruptMask(onetouch->hOneTouchDevice, NV_FALSE);
-	}
-	else {
-		pr_err("[ONETOUCH] tegra_touch_late_resume: NULL handles passed\n");
-	}
+    if (onetouch && onetouch->hOneTouchDevice) {
+        if (!NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_FALSE))
+        {
+            NvOdmOneTouchDeviceClose(onetouch->hOneTouchDevice);
+            NvOdmOneTouchDeviceOpen(&onetouch->hOneTouchDevice, &onetouch->semaphore);
+        }
+        else
+            NvOdmOneTouchInterruptMask(onetouch->hOneTouchDevice, NV_FALSE);
+    
+        if (onetouch->bIsSuspended) {
+            onetouch->bIsSuspended = NV_FALSE;
+            wake_up(&onetouch->ts_wait);
+        }
+         else printk("[ONETOUCH]!: bIsSuspended = FALSE!@tegra_onetouch_late_resume\n");
+    }
+    else {
+        pr_err("[ONETOUCH] tegra_touch_late_resume: NULL handles passed\n");
+    }
 }
 #else
 static int tegra_onetouch_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct tegra_onetouch_driver_data *onetouch = (struct tegra_onetouch_driver_data*)pdata;
+    if (!touch->bIsSuspended) {
+        touch->bIsSuspended = NV_TRUE;
 
-	if (NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_TRUE))
-		return 0;
-
-	pr_err("tegra_onetouch_suspend: NULL handles passed\n");
-	return -1;
+        if (NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_TRUE))
+        {
+            if (!onetouch->bPollingMode) {
+                /* allow touch thread to call wake_event_freezer */
+                NvOdmOsSemaphoreSignal(onetouch->semaphore);
+            }
+            return 0;
+        }
+    }
+    pr_err("tegra_onetouch_suspend: NULL handles passed\n");
+    return -1;
 }
 
 static int tegra_onetouch_resume(struct platform_device *pdev)
 {
-	struct tegra_onetouch_driver_data *onetouch = (struct tegra_onetouch_driver_data*)pdata;
+    struct tegra_onetouch_driver_data *onetouch = (struct tegra_onetouch_driver_data*)pdata;
+    if (touch->bIsSuspended) {
+        touch->bIsSuspended = NV_FALSE;
 
-	if (NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_FALSE))
-		return 0;
+        if (NvOdmOneTouchSleepMode(onetouch->hOneTouchDevice, NV_FALSE))
+        {
+            wake_up(&onetouch->ts_wait);
+            return 0;
+        }
+    }
 
-	pr_err("tegra_onetouch_resume: NULL handles passed\n");
-	return -1;
-}
+    pr_err("tegra_onetouch_resume: NULL handles passed\n");
+    return -1;
+    }
 #endif
 
 static int tegra_onetouch_thread(void *pdata)
@@ -133,9 +160,13 @@ static int tegra_onetouch_thread(void *pdata)
 	NvU16 pressed_back_button = NV_FALSE;	
 	
 	/* onetouch event thread should be frozen before suspend */
+    /* 20110730 sunghoon.kim@lge.com dvfs100% issue
+       BUG 853092
+       use set_freezeable() instead of set_freezable_with_signal()
 	set_freezable_with_signal();
-	
-	for (;;)
+    */
+    set_freezable();
+	while (!kthread_should_stop())
 	{
 		if (onetouch->bPollingMode)
 		msleep(onetouch->pollingIntervalMS); 
@@ -144,23 +175,32 @@ static int tegra_onetouch_thread(void *pdata)
 		if (!NvOdmOsSemaphoreWaitTimeout(onetouch->semaphore, NV_WAIT_INFINITE))
 		BUG();
 
+		if (onetouch->bIsSuspended) {
+			/*
+			 * kernel threads need to wait on event freezable in order
+			 * to be freezable.
+			 * Refer kernel Documentation power->freezing-of-tasks
+			 */
+			wait_event_freezable(onetouch->ts_wait,
+				!onetouch->bIsSuspended ||
+				kthread_should_stop());
+	        printk("[ONETOUCH] kthread_wakeup@tegra_onetouch_thread\n");
+			continue;
+		}
+
 		bKeepReadingSamples = NV_TRUE;
 		while (bKeepReadingSamples)
 		{
+        	NvOdmOsMutexLock(onetouch->hMutex);
 			if (!NvOdmOneTouchReadButton(onetouch->hOneTouchDevice, &button))
 			{
 				pr_err("Couldn't read onetouch sample\n");
-#if defined(CONFIG_MACH_STAR_SKT_REV_E) || defined(CONFIG_MACH_STAR_SKT_REV_F)
-				onetouch->isReset = 1;
 				NvOdmOneTouchDeviceClose(onetouch->hOneTouchDevice);
 				NvOdmOneTouchDeviceOpen(&onetouch->hOneTouchDevice, &onetouch->semaphore);
-				onetouch->isReset = 0;
+        		NvOdmOsMutexUnlock(onetouch->hMutex);
 				break;
-#else
-				bKeepReadingSamples = NV_FALSE;
-				goto DoneWithSample;
-#endif
 			}
+        	NvOdmOsMutexUnlock(onetouch->hMutex);
 
 			if(button.menu == NV_TRUE && !pressed_menu_button)
 			{
@@ -191,9 +231,7 @@ static int tegra_onetouch_thread(void *pdata)
 			input_mt_sync(onetouch->input_dev);
 			input_sync(onetouch->input_dev);
 
-#if !defined(CONFIG_MACH_STAR_SKT_REV_E) && !defined(CONFIG_MACH_STAR_SKT_REV_F)
 			DoneWithSample:
-#endif
 			bKeepReadingSamples = NV_FALSE;
 			
 			if (!onetouch->bPollingMode && 
@@ -209,7 +247,7 @@ static int tegra_onetouch_thread(void *pdata)
 }
 
 
-static int __devinit tegra_onetouch_probe(struct platform_device *pdev)
+static int __init tegra_onetouch_probe(struct platform_device *pdev)
 {
 	struct tegra_onetouch_driver_data *onetouch = NULL;
 	struct input_dev *input_dev = NULL;
@@ -227,6 +265,14 @@ static int __devinit tegra_onetouch_probe(struct platform_device *pdev)
 		return err;
 	}
 	
+    onetouch->hMutex = NvOdmOsMutexCreate();
+	if(!onetouch->hMutex)
+	{
+		err = -1;
+		pr_err("tegra_onetouch_probe: Mutex creation failed\n");
+		goto err_mutex_create_failed;
+	}
+
 	onetouch->semaphore = NvOdmOsSemaphoreCreate(0);
 	if (!onetouch->semaphore) {
 		err = -1;
@@ -234,13 +280,16 @@ static int __devinit tegra_onetouch_probe(struct platform_device *pdev)
 		goto err_semaphore_create_failed;
 	}
 
-// 20100423  for Touch Interrupt Issue at booting [START]
+// 20100423 joseph.jung@lge.com for Touch Interrupt Issue at booting [START]
 #ifdef FEATURE_LGE_TOUCH_CUSTOMIZE
 	onetouch->bPollingMode = NV_FALSE;
 	if (!NvOdmOneTouchDeviceOpen(&onetouch->hOneTouchDevice, &onetouch->semaphore)) {
+       	NvOdmOsWaitUS(1000); // wait 1 msec
+		if (!NvOdmOneTouchDeviceOpen(&onetouch->hOneTouchDevice, &onetouch->semaphore)) { // retry once more
 		err = -1;
 		pr_err("tegra_onetouch_probe: NvOdmOneTouchDeviceOpen failed\n");
 		goto err_open_failed;
+		}
 	}
 #else
 	if (!NvOdmOneTouchDeviceOpen(&onetouch->hOneTouchDevice)) {
@@ -256,7 +305,7 @@ static int __devinit tegra_onetouch_probe(struct platform_device *pdev)
 		onetouch->pollingIntervalMS = 10;
 	}
 #endif /* FEATURE_LGE_TOUCH_CUSTOMIZE */
-// 20100423  for Touch Interrupt Issue at booting [END]
+// 20100423 joseph.jung@lge.com for Touch Interrupt Issue at booting [END]
 
 	onetouch->task =
 		kthread_create(tegra_onetouch_thread, onetouch, "tegra_onetouch_thread");
@@ -265,6 +314,7 @@ static int __devinit tegra_onetouch_probe(struct platform_device *pdev)
 		err = -1;
 		goto err_kthread_create_failed;
 	}
+	init_waitqueue_head(&onetouch->ts_wait);
 	wake_up_process( onetouch->task );
 
 	onetouch->input_dev = input_dev;
@@ -277,6 +327,7 @@ static int __devinit tegra_onetouch_probe(struct platform_device *pdev)
 	/* virtual key is BTN_TOUCH */
 	set_bit(BTN_TOUCH, onetouch->input_dev->keybit);
 
+	onetouch->bIsSuspended = NV_FALSE;
 	set_bit(KEY_MENU, onetouch->input_dev->keybit);
 //	set_bit(KEY_HOME, onetouch->input_dev->keybit);
 	set_bit(KEY_BACK, onetouch->input_dev->keybit);
@@ -308,15 +359,19 @@ err_input_register_device_failed:
 	NvOdmOneTouchDeviceClose(onetouch->hOneTouchDevice);
 err_kthread_create_failed:
 	/* FIXME How to destroy the thread? Maybe we should use workqueues? */
+	kthread_stop(onetouch->task);
 err_open_failed:
 	NvOdmOsSemaphoreDestroy(onetouch->semaphore);
 err_semaphore_create_failed:
+	NvOdmOsMutexDestroy(onetouch->hMutex);
+err_mutex_create_failed:
+
 	kfree(onetouch);
 	input_free_device(input_dev);
 	return err;
 }
 
-static int __devexit tegra_onetouch_remove(struct platform_device *pdev)
+static int tegra_onetouch_remove(struct platform_device *pdev)
 {
 	struct tegra_onetouch_driver_data *onetouch = platform_get_drvdata(pdev);
 
@@ -325,12 +380,18 @@ static int __devexit tegra_onetouch_remove(struct platform_device *pdev)
 #endif
 	onetouch->shutdown = 1;
 
+	NvOdmOneTouchInterruptMask(onetouch->hOneTouchDevice, NV_TRUE);
+	NvOdmOsSleepMS(50);
+
+	NvOdmOsSemaphoreDestroy(onetouch->semaphore);
+	NvOdmOsMutexDestroy(onetouch->hMutex);
 
 	NvOdmOneTouchDeviceClose(onetouch->hOneTouchDevice);
 
 	/* FIXME How to destroy the thread? Maybe we should use workqueues? */
+	kthread_stop(onetouch->task);
 	input_unregister_device(onetouch->input_dev);
-	/* NvOsSemaphoreDestroy(onetouch->semaphore); */
+	/*NvOsSemaphoreDestroy(onetouch->semaphore);*/ 
 	input_unregister_device(onetouch->input_dev);
 	kfree(onetouch);
 	return 0;
@@ -351,8 +412,9 @@ static void tegra_onetouch_shutdown(struct  platform_device *pdev)
 	NvOdmOneTouchInterruptMask(onetouch->hOneTouchDevice, NV_TRUE);
 	NvOdmOsSleepMS(50);
 
-
 	NvOdmOsSemaphoreDestroy(onetouch->semaphore);
+	NvOdmOsMutexDestroy(onetouch->hMutex);
+
 	NvOdmOneTouchDeviceClose(onetouch->hOneTouchDevice);
 
 	input_unregister_device(onetouch->input_dev);
@@ -362,9 +424,12 @@ static void tegra_onetouch_shutdown(struct  platform_device *pdev)
 
 static struct platform_driver tegra_onetouch_driver = {
 	.probe	  = tegra_onetouch_probe,
-	.remove	  = __devexit_p(tegra_onetouch_remove),
+	.remove	 = tegra_onetouch_remove,
 	.shutdown = tegra_onetouch_shutdown,
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	.suspend = NULL,
+	.resume	 = NULL,
+#else
 	.suspend = tegra_onetouch_suspend,
 	.resume	 = tegra_onetouch_resume,
 #endif

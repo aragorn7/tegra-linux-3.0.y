@@ -292,7 +292,12 @@ static NvU32 synaptics_ts_melting_check_time;
 static NvBool synaptics_ts_first_finger_pressed = NV_FALSE;
 // 20101223  improve ghost finger avoid algorithm [END]
 
-
+#ifdef CONFIG_ONETOUCH_TEGRA_ODM
+// 20101223 hyeongwon.oh@lge.com [SU660] block touch interrupt when onetouch is on reset [START]
+extern NvOdmServicesGpioIntrHandle hGpioIntr_onetouch;
+static NvBool isMasked = NV_FALSE;
+// 20101223 hyeongwon.oh@lge.com [SU660] block touch interrupt when onetouch is on reset [END]
+#endif
 
 ////////////////////////////////////////////////////////////////////
 //////////////////    Fucntions for Synaptics    ///////////////////

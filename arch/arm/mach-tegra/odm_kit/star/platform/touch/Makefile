@@ -12,3 +12,7 @@ obj-y += nvodm_touch.o
 obj-y += nvodm_touch_synaptics.o
 obj-y += nvodm_touch_cypress.o
 
+# 20100919 hyeongwon.oh@lge.com for Star OneTouch
+
+obj-$(CONFIG_ONETOUCH_TEGRA_ODM) += nvodm_onetouch.o
+obj-$(CONFIG_ONETOUCH_TEGRA_ODM) += nvodm_onetouch_synaptics.o

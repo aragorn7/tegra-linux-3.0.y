@@ -1331,6 +1331,13 @@ Max8907WriteVoltageReg(
 			|| (vddRail == Max8907PmuSupply_LDO8) || (vddRail == Max8907PmuSupply_LDO7) 
 			|| (Accel_PRail == vddRail))  
         {
+#if defined(CONFIG_MACH_STAR_SKT_REV_E)
+            if ( vddRail ==  Max8907PmuSupply_LDO12)
+            {
+                printk("[PowerRail] command for LDO12 off -> keep LDO12 on !!!!  \n");
+                return NV_TRUE;
+            }
+#endif
             // turn off the supply
             NvOdmServicesPmuSetSocRailPowerState(
                 ((Max8907PrivData*)hDevice->pPrivate)->hOdmPmuSevice, pSupplyInfo->supply, NV_FALSE);
