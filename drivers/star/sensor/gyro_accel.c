@@ -845,9 +845,9 @@ static ssize_t motion_gyro_onoff_store(struct device *dev, struct device_attribu
 	} else {
 		atomic_set(&gyro_flag, 0);
 
-		atomic_set(&gyro_x,  0);
+		atomic_set(&gyro_x, 0);
 		atomic_set(&gyro_y, 0);
-		atomic_set(&gyro_z,   0);
+		atomic_set(&gyro_z, 0);
 	}
 
 	return count;
