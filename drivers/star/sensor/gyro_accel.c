@@ -15,13 +15,13 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
-#include <asm-generic/gpio.h>
-#include <asm-generic/system.h>
+#include <asm/gpio.h>
+#include <asm/system.h>
 #include <linux/workqueue.h>
 #include <linux/device.h>
 #include <linux/string.h>
 #include <mach/hardware.h>
-#include <asm-generic/uaccess.h>
+#include <asm/uaccess.h>
 #include <linux/ioctl.h>
 #include <linux/miscdevice.h>
 #include <linux/regulator/consumer.h>
