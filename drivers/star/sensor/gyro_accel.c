@@ -26,9 +26,9 @@
 #include <linux/miscdevice.h>
 #include <linux/regulator/consumer.h>
 
-#include "nvodm_gyroscope_accel.h"
+#include "nvodm_gyro_accel.h"
 #include "nvodm_gyro_accel_kxtf9.h"
-#include "mach/lprintk.h"
+#include <mach/lprintk.h>
 
 #include "gyro_accel.h"
 #include "mpu3050.h"
